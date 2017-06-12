@@ -27,6 +27,7 @@ class Controller(object):
         self.aws = self.config_data['aws']
         self.name = self.config_data['name']
 
+        self.ec2 = self._get_client('ec2')
         self.ecs = self._get_client('ecs')
         self.asg = self._get_client('autoscaling')
         self.elb = self._get_client('elb')
@@ -295,3 +296,8 @@ class Controller(object):
            wait_exponential_max=2000)
     def _elb_describe_instance_health(self, **kwargs):
         return self.elb.describe_instance_health(**kwargs)
+
+    @retry(retry_on_exception=_is_retryable_exception, stop_max_delay=10000, wait_exponential_multiplier=500,
+           wait_exponential_max=2000)
+    def _ec2_describe_instances(self, **kwargs):
+        return self.ec2.describe_instances(**kwargs)
