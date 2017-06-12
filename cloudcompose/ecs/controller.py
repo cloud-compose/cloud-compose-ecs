@@ -1,5 +1,4 @@
 import logging
-import pprint
 from itertools import chain
 from os import environ
 from time import sleep
@@ -13,9 +12,6 @@ from cloudcompose.util import require_env_var
 from retrying import retry
 
 from workflow import UpgradeWorkflow, Server
-
-pp = pprint.PrettyPrinter(depth=5)
-
 
 class Controller(object):
     def __init__(self, cloud_config):
