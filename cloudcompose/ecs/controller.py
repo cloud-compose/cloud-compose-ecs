@@ -137,15 +137,13 @@ class Controller(object):
 
     def _get_ecs_services(self):
         cluster_services = self._ecs_list_services(cluster=self.name)
-        try:
-            if not cluster_services['serviceArns']:
-                return []
-            else:
-                describe_services = self._ecs_describe_services(cluster=self.name,
-                                                                services=cluster_services['serviceArns'])
-                return describe_services['services']
-        except KeyError:
-            raise CloudComposeException("Services could not be retrieved for {}".format(self.name))
+
+        if cluster_services.get('serviceArns', []):
+            describe_services = self._ecs_describe_services(cluster=self.name,
+                                                            services=cluster_services['serviceArns'])
+            return describe_services['services']
+
+        raise CloudComposeException("Services could not be retrieved for {}".format(self.name))
 
     def _get_ecs_instances(self):
         try:
