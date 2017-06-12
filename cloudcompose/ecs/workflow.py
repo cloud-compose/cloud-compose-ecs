@@ -6,7 +6,7 @@ import time
 
 class Server(object):
     INITIAL = 'initial'
-    SHUTTING_DOWN = 'shutting-down'
+    SHUTTING_DOWN = 'replacing'
     TERMINATED = 'terminated'
 
     def __init__(self, private_ip, instance_id, instance_name, state=INITIAL, completed=False):
