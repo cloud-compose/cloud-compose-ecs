@@ -2,6 +2,7 @@ import logging
 from itertools import chain
 from os import environ
 from time import sleep
+from pprint import pprint
 
 import boto3
 import botocore
@@ -17,6 +18,7 @@ class Controller(object):
     def __init__(self, cloud_config):
         logging.basicConfig(level=logging.ERROR)
         self.logger = logging.getLogger(__name__)
+        self.verbose = False
 
         self.cloud_config = cloud_config
         self.config_data = cloud_config.config_data('cluster')
@@ -72,11 +74,14 @@ class Controller(object):
         cloud_controller = CloudController(self.cloud_config)
         cloud_controller.cleanup()
 
-    def cluster_health(self):
+    def cluster_health(self, verbose=False):
         """
         ECS cluster must be active, EC2 instances must be active, and services must be active.
+        :param verbose: Output detailed health information about cluster
         :return: boolean representing health of entire ECS cluster
         """
+        self.verbose = verbose
+
         health_checks = [
             self._cluster_health(),
             self._instance_health(),
@@ -136,14 +141,29 @@ class Controller(object):
             raise CloudComposeException("Could not retrieve cluster status for {}".format(self.name))
 
     def _get_ecs_services(self):
-        cluster_services = self._ecs_list_services(cluster=self.name)
+        ecs_services = []
+        more_services = True
+        next_token = False
 
-        if cluster_services.get('serviceArns', []):
-            describe_services = self._ecs_describe_services(cluster=self.name,
-                                                            services=cluster_services['serviceArns'])
-            return describe_services['services']
+        while more_services:
+            if next_token:
+                cluster_services = self._ecs_list_services(cluster=self.name, nextToken=next_token)
+            else:
+                cluster_services = self._ecs_list_services(cluster=self.name)
 
-        raise CloudComposeException("Services could not be retrieved for {}".format(self.name))
+            service_arns = cluster_services.get('serviceArns', [])
+            if service_arns:
+                describe_services = self._ecs_describe_services(cluster=self.name, services=service_arns)
+                ecs_services = ecs_services + describe_services['services']
+            else:
+                raise CloudComposeException("Services could not be retrieved for {}".format(self.name))
+
+            if cluster_services.get('nextToken'):
+                next_token = cluster_services.get('nextToken')
+            else:
+                more_services = False
+
+        return ecs_services
 
     def _get_ecs_instances(self):
         try:
@@ -162,7 +182,11 @@ class Controller(object):
         """
         clusters = self._get_cluster()
         # ACTIVE indicates that you can register container instances with the cluster and instances can accept tasks.
-        return all([cluster['status'] == 'ACTIVE' for cluster in clusters])
+
+        if self.verbose:
+            self._verbose_log("Cluster Health", clusters)
+
+        return all([cluster['status'] == 'ACTIVE' and cluster['pendingTasksCount'] == 0 for cluster in clusters])
 
     def _service_health(self):
         """
@@ -183,10 +207,28 @@ class Controller(object):
     def _check_load_balancers(self, load_balancers):
         """
         The status of load balancers used by services on the cluster.
+        :param load_balancer is a list of load balancers used by the services running on the cluster
+        :param verbose: a boolean value whether to detailed information about load balancers
         :return: boolean representing status of all load balancers
         """
         albs = filter(None, [lb.get('targetGroupArn', None) for lb in load_balancers])
         elbs = filter(None, [lb.get('loadBalancerName', None) for lb in load_balancers])
+
+        if self.verbose:
+            for alb in albs:
+                target_group_health = self._alb_describe_target_health(TargetGroupArn=alb)
+                for target in target_group_health['TargetHealthDescriptions']:
+                    if target['TargetHealth']['State'] != 'healthy':
+                        self._verbose_log("Instance {} is unhealthy in target group:\n{}"
+                                          .format(target['Target']['Id'], alb), target)
+
+            for elb in elbs:
+                elb_health = self._elb_describe_instance_health(LoadBalancerName=elb)
+
+                for instance in elb_health['InstanceStates']:
+                    if instance['State'] != 'InService':
+                        self._verbose_log("Instance {} in ELB {} is unhealthy"
+                                          .format(instance['InstanceId'], elb), instance)
 
         alb_statuses = list(chain.from_iterable([
             alb_status['TargetHealthDescriptions'] for alb_status in [
@@ -212,8 +254,15 @@ class Controller(object):
         instances = self._get_ecs_instances()
         asg = self._get_auto_scaling_group()
         if len(instances) != asg['DesiredCapacity']:
+            if self.verbose:
+                print("ECS cluster is not at desired capacity of {}".format(asg['DesiredCapacity']))
             return False
         else:
+            if self.verbose:
+                for instance in instances:
+                    if instance['status'] != 'ACTIVE':
+                        print("{} is not active".format(instance['ec2InstanceId']))
+
             return all([instance['status'] == 'ACTIVE' for instance in instances])
 
     def _get_auto_scaling_group(self):
@@ -232,6 +281,18 @@ class Controller(object):
         :param instance_id: ECS container instance to terminate
         """
         self._asg_set_instance_health(InstanceId=instance_id, HealthStatus='Unhealthy')
+
+    @staticmethod
+    def _verbose_log(title, output):
+        """
+        Outputs verbose information about the health check
+        :param title: Text to insert into banner
+        :param output: Contents to be pretty printed (detailed API response)
+        """
+        print("=" * 80)
+        print(title)
+        print("=" * 80)
+        pprint(output)
 
     def _is_retryable_exception(exception):
         return not isinstance(exception, botocore.exceptions.ClientError)
