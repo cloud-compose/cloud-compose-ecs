@@ -39,3 +39,5 @@ The health command checks if the ECS cluster is healthy by checking whether:
 ```bash
 cloud-compose ecs health
 ```
+
+The `--verbose` flag optionally enables detailed information about which services or load balancers are unhealthy.

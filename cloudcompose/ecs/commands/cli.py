@@ -37,7 +37,8 @@ def down(force):
 
 
 @cli.command()
-def health():
+@click.option('--verbose/--no-verbose', default=False, help="Output detailed health check information")
+def health(verbose):
     """
     check ECS cluster health
     """
@@ -45,7 +46,7 @@ def health():
         cloud_config = CloudConfig()
         controller = Controller(cloud_config)
         name = cloud_config.config_data('cluster')['name']
-        healthy = controller.cluster_health()
+        healthy = controller.cluster_health(verbose)
         if healthy:
             print("{} is healthy".format(name))
         else:
