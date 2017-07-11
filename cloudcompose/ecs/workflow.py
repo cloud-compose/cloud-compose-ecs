@@ -26,14 +26,38 @@ class UpgradeWorkflow(object):
         self.controller = controller
         self.curr_index = 0
         self.workflow = self._load_workflow(servers)
+        self.start_time = time.time()
+
+    def elapsed(self):
+        elapsed = int(time.time() - self.start_time)
+        seconds = elapsed % 60
+        minutes = ((elapsed - seconds) / 60) % 60
+        hours   = (elapsed - seconds - 60 * minutes) / 3600
+
+        readable = []
+        if hours > 0:
+            readable.append('{:-3d}h'.format(hours))
+        if minutes > 0:
+            readable.append('{:-3d}m'.format(minutes))
+        if seconds > 0:
+            readable.append('{:-3d}s'.format(seconds))
+
+        return '{:>12}'.format("".join(readable))
 
     def step(self):
         if self.curr_index >= len(self.workflow):
             print "{} >= {}".format(self.curr_index, len(self.workflow))
             return False
 
+        time = self.elapsed()
         server = self.workflow[self.curr_index]
-        print server
+        complete = len([server for server in self.workflow if server.completed])
+        print "%s (%d of %d) - %s" % (
+            server,
+            complete + 1,
+            len(self.workflow),
+            time
+        )
 
         healthy = self.controller.cluster_health()
         if healthy:
