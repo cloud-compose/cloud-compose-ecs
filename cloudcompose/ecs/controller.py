@@ -345,12 +345,41 @@ class Controller(object):
     @retry(retry_on_exception=_is_retryable_exception, stop_max_delay=10000, wait_exponential_multiplier=500,
            wait_exponential_max=2000)
     def _alb_describe_target_health(self, **kwargs):
-        return self.alb.describe_target_health(**kwargs)
+        try:
+            return self.alb.describe_target_health(**kwargs)
+        except Exception as e:
+            if "TargetGroupNotFound" in e.message:
+                return {
+                  "TargetHealthDescriptions": [
+                    {
+                      "TargetHealth": {
+                        "State": "missing"
+                      }
+                    }
+                  ]
+                }
+            else:
+                raise
 
     @retry(retry_on_exception=_is_retryable_exception, stop_max_delay=10000, wait_exponential_multiplier=500,
            wait_exponential_max=2000)
     def _elb_describe_instance_health(self, **kwargs):
-        return self.elb.describe_instance_health(**kwargs)
+        try:
+            return self.elb.describe_instance_health(**kwargs)
+        except Exception as e:
+            if "LoadBalancerNotFound" in e.message:
+                return {
+                  "InstanceStates": [
+                    {
+                      "InstanceId": "N/A",
+                      "ReasonCode": "N/A",
+                      "State": "Missing",
+                      "Description": "N/A"
+                    }
+                  ]
+                }
+            else:
+                raise
 
     @retry(retry_on_exception=_is_retryable_exception, stop_max_delay=10000, wait_exponential_multiplier=500,
            wait_exponential_max=2000)
