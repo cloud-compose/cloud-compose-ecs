@@ -15,12 +15,13 @@ from retrying import retry
 from workflow import UpgradeWorkflow, Server
 
 class Controller(object):
-    def __init__(self, cloud_config):
+    def __init__(self, cloud_config, upgrade_image=None):
         logging.basicConfig(level=logging.ERROR)
         self.logger = logging.getLogger(__name__)
         self.verbose = False
 
         self.cloud_config = cloud_config
+        self.upgrade_image = upgrade_image
         self.config_data = cloud_config.config_data('cluster')
         self.aws = self.config_data['aws']
         self.name = self.config_data['name']
@@ -53,9 +54,7 @@ class Controller(object):
         Update cluster configuration
         """
         if self._cluster_create():
-            ci = CloudInit()
-            cloud_controller = CloudController(self.cloud_config, silent=silent)
-            cloud_controller.up(ci)
+            self._upgrade_launch_config(silent)
         else:
             print("ECS cluster {} does not exist and could not be created".format(self.name))
 
@@ -89,7 +88,7 @@ class Controller(object):
         ]
         return all(health_checks)
 
-    def upgrade(self, single_step):
+    def upgrade(self, single_step, silent=False):
         """
         Replaces existing ECS container instances
         :param single_step: Whether to execute a single step (defaults to entire workflow)
@@ -97,6 +96,7 @@ class Controller(object):
         """
         servers = self._get_servers()
         workflow = UpgradeWorkflow(self, self.config_data['name'], servers)
+        self._upgrade_launch_config(silent)
 
         # Start upgrading container instances
         if single_step:
@@ -113,6 +113,11 @@ class Controller(object):
         if len(instances) != 1:
             raise Exception('Expected one instance for %s and got %s' % (instance_id, len(instances)))
         return instances[0]['Instances'][0]['State']['Name']
+
+    def _upgrade_launch_config(self, silent):
+        ci = CloudInit()
+        cloud_controller = CloudController(self.cloud_config, silent=silent)
+        cloud_controller.up(ci, upgrade_image=self.upgrade_image)
 
     def _get_servers(self):
         """
