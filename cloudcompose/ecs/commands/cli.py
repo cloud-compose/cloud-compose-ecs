@@ -10,12 +10,13 @@ def cli():
 
 
 @cli.command()
-def up():
+@click.option('--upgrade-image/--no-upgrade-image', default=False, help="Upgrade the image to the newest version instead of keeping the cluster consistent")
+def up(upgrade_image):
     """
     updates cluster configuration
     """
     try:
-        cloud_config = CloudConfig()
+        cloud_config = CloudConfig(upgrade_image=upgrade_image)
         controller = Controller(cloud_config)
         controller.cluster_up()
     except CloudComposeException as ex:
@@ -57,13 +58,14 @@ def health(verbose):
 
 @cli.command()
 @click.option('--single-step/--no-single-step', default=False, help="Perform only one upgrade step and then exit")
-def upgrade(single_step):
+@click.option('--upgrade-image/--no-upgrade-image', default=True, help="Upgrade the image to the newest version instead of keeping the cluster consistent")
+def upgrade(single_step, upgrade_image):
     """
     upgrade the ECS cluster
     """
     try:
         cloud_config = CloudConfig()
-        controller = Controller(cloud_config)
+        controller = Controller(cloud_config, upgrade_image=upgrade_image)
         controller.upgrade(single_step)
     except CloudComposeException as ex:
         print(ex.message)
