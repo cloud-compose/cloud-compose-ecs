@@ -107,6 +107,15 @@ class Controller(object):
             while workflow.step():
                 sleep(10)
 
+    def is_fully_scaled(self):
+        """
+        Describes the ECS cluster and determines whether it is operating at the desired scale.
+        :return: True if the ECS cluster is at the desired scale.
+        """
+        instances = self._get_ecs_instances()
+        asg = self._get_auto_scaling_group()
+        return len(instances) == asg['DesiredCapacity']
+
     def instance_status(self, instance_id):
         filters = [{ 'Name': 'instance-id', 'Values': [instance_id] }]
         instances = self._ec2_describe_instances(Filters=filters)['Reservations']
