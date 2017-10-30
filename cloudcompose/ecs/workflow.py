@@ -21,11 +21,14 @@ class Server(object):
 
 
 class UpgradeWorkflow(object):
+    RETRIES = 3
+
     def __init__(self, controller, cluster_name, servers):
         self.workflow_file = '/tmp/cloud-compose/ecs.upgrade.workflow.%s.json' % cluster_name
         self.controller = controller
         self.curr_index = 0
         self.workflow = self._load_workflow(servers)
+        self.scaling_retries = UpgradeWorkflow.RETRIES
 
     def step(self):
         if self.curr_index >= len(self.workflow):
@@ -40,11 +43,19 @@ class UpgradeWorkflow(object):
             self._next_step()
         else:
             if self.controller.is_fully_scaled():
-                # If the ECS cluster is unhealthy, but the cluster is at the desired scale, then abort.
-                self.controller.cluster_health(verbose=True)
-                print("ECS cluster upgrade failed.")
-                return False
+                if self.scaling_retries:
+                    # Once a new ECS instance spins up, retry this workflow step
+                    # to allow for new containers to start and ELB registration
+                    self.scaling_retries -= 1
+                    return True
+                else:
+                    # The ECS cluster is unhealthy, but the cluster is already
+                    # at the desired scale, so abort the upgrade.
+                    self.controller.cluster_health(verbose=True)
+                    print("ECS cluster upgrade failed.")
+                    return False
             else:
+                self.scaling_retries = UpgradeWorkflow.RETRIES
                 return True
 
         # We're done, so cleanup.
