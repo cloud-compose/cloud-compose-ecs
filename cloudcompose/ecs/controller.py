@@ -105,7 +105,7 @@ class Controller(object):
         else:
             print("Starting upgrade of container instances:")
             while workflow.step():
-                sleep(10)
+                sleep(60)
 
     def is_fully_scaled(self):
         """
