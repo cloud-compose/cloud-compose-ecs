@@ -107,6 +107,15 @@ class Controller(object):
             while workflow.step():
                 sleep(10)
 
+    def is_fully_scaled(self):
+        """
+        Describes the ECS cluster and determines whether it is operating at the desired scale.
+        :return: True if the ECS cluster is at the desired scale.
+        """
+        instances = self._get_ecs_instances()
+        asg = self._get_auto_scaling_group()
+        return len(instances) == asg['DesiredCapacity']
+
     def instance_status(self, instance_id):
         filters = [{ 'Name': 'instance-id', 'Values': [instance_id] }]
         instances = self._ec2_describe_instances(Filters=filters)['Reservations']
@@ -200,11 +209,20 @@ class Controller(object):
         """
         services = self._get_ecs_services()
 
+        if self.verbose:
+            for service in services:
+                if service['status'] != 'ACTIVE':
+                    self._verbose_log("Service {} is not active".format(service['serviceName']))
+                elif service['runningCount'] != service['desiredCount']:
+                    self._verbose_log("Service {} is not running at the desired scale".format(service['serviceName']))
+
         if services:
             load_balancers = list(chain.from_iterable([service.get('loadBalancers', []) for service in services]))
             load_balancers_healthy = self._check_load_balancers(load_balancers)
 
-            return all([service['status'] == 'ACTIVE' for service in services]) and load_balancers_healthy
+            return all(
+                [service['status'] == 'ACTIVE' and service['runningCount'] == service['desiredCount'] for service in
+                 services]) and load_balancers_healthy
         else:
             # If there are no services running, there are no tasks to worry about.
             return True
@@ -288,7 +306,7 @@ class Controller(object):
         self._asg_set_instance_health(InstanceId=instance_id, HealthStatus='Unhealthy')
 
     @staticmethod
-    def _verbose_log(title, output):
+    def _verbose_log(title, output=None):
         """
         Outputs verbose information about the health check
         :param title: Text to insert into banner
@@ -296,8 +314,9 @@ class Controller(object):
         """
         print("=" * 80)
         print(title)
-        print("=" * 80)
-        pprint(output)
+        if output:
+            print("=" * 80)
+            pprint(output)
 
     def _is_retryable_exception(exception):
         return not isinstance(exception, botocore.exceptions.ClientError)
