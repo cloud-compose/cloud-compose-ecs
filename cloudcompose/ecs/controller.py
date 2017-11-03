@@ -116,6 +116,30 @@ class Controller(object):
         asg = self._get_auto_scaling_group()
         return len(instances) == asg['DesiredCapacity']
 
+    def is_service_scaling(self):
+        """
+        Checks if any services are currently scaling on the ECS cluster.
+        :return: True if services are scaling on the ECS cluster.
+        """
+        services = self._get_ecs_services()
+        return any([service['pendingCount'] > 0 for service in services])
+
+    def has_failures(self):
+        """
+        Checks if there are any failures on the ECS cluster.
+        :return: True if there are failures
+        """
+        try:
+            newest_instance = self._get_newest_ecs_instance()
+            # If there are stopped tasks, then there's something preventing
+            # tasks from starting on the new ECS instance.
+            tasks = self._ecs_list_tasks(cluster=self.name,
+                                         containerInstance=newest_instance['containerInstanceArn'],
+                                         desiredStatus='STOPPED')
+            return tasks['taskArns']
+        except KeyError:
+            raise CloudComposeException("Could not retrieve stopped tasks for {}".format(self.name))
+
     def instance_status(self, instance_id):
         filters = [{ 'Name': 'instance-id', 'Values': [instance_id] }]
         instances = self._ec2_describe_instances(Filters=filters)['Reservations']
@@ -188,6 +212,20 @@ class Controller(object):
         except:
             raise CloudComposeException(
                 'ECS container instances could not be retrieved for {}'.format(self.name))
+
+    def _get_newest_ecs_instance(self):
+        """
+        Gets the newest ECS instance to check for service failures.
+        :return:
+        """
+        ecs_instances = self._get_ecs_instances()
+
+        latest_index = 0
+        for i, instance in enumerate(ecs_instances):
+            if instance['registeredAt'] > ecs_instances[latest_index]['registeredAt']:
+                latest_index = i
+
+        return ecs_instances[latest_index]
 
     def _cluster_health(self):
         """
@@ -345,6 +383,11 @@ class Controller(object):
            wait_exponential_max=2000)
     def _ecs_list_container_instances(self, **kwargs):
         return self.ecs.list_container_instances(**kwargs)
+
+    @retry(retry_on_exception=_is_retryable_exception, stop_max_delay=10000, wait_exponential_multiplier=500,
+           wait_exponential_max=2000)
+    def _ecs_list_tasks(self, **kwargs):
+        return self.ecs.list_tasks(**kwargs)
 
     @retry(retry_on_exception=_is_retryable_exception, stop_max_delay=10000, wait_exponential_multiplier=500,
            wait_exponential_max=2000)
