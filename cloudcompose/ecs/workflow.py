@@ -38,14 +38,15 @@ class UpgradeWorkflow(object):
         healthy = self.controller.cluster_health()
         if healthy:
             self._next_step()
-        else:
-            if self.controller.is_fully_scaled():
-                # If the ECS cluster is unhealthy, but the cluster is at the desired scale, then abort.
+        elif self.controller.is_fully_scaled():
+            # The ECS cluster is running at the desired scale, so check whether there are
+            # services scaling up.  If the ECS cluster has any failures, stop the upgrade.
+            if self.controller.is_service_scaling() and self.controller.has_failures():
                 self.controller.cluster_health(verbose=True)
                 print("ECS cluster upgrade failed.")
                 return False
-            else:
-                return True
+        else:
+            return True
 
         # We're done, so cleanup.
         if self.curr_index >= len(self.workflow):
