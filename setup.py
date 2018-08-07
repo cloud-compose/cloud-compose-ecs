@@ -4,7 +4,7 @@ import warnings
 
 setup(
     name='cloud-compose-ecs',
-    version='0.1.3',
+    version='0.1.4',
     description='ECS plugin for cloud-compose',
     packages=find_packages(),
     include_package_data=True,

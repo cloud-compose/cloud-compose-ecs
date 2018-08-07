@@ -278,7 +278,7 @@ class Controller(object):
         if self.verbose:
             for alb in albs:
                 target_group_health = self._alb_describe_target_health(TargetGroupArn=alb)
-                for target in target_group_health['TargetHealthDescriptions']:
+                for target in target_group_health.get('TargetHealthDescriptions', []):
                     if target['TargetHealth']['State'] != 'healthy':
                         self._verbose_log("Instance {} is unhealthy in target group:\n{}"
                                           .format(target['Target']['Id'], alb), target)
@@ -292,7 +292,7 @@ class Controller(object):
                                           .format(instance['InstanceId'], elb), instance)
 
         alb_statuses = list(chain.from_iterable([
-            alb_status['TargetHealthDescriptions'] for alb_status in [
+            alb_status.get('TargetHealthDescriptions', []) for alb_status in [
                 self._alb_describe_target_health(TargetGroupArn=alb) for alb in albs
             ]
         ]))
@@ -412,7 +412,10 @@ class Controller(object):
     @retry(retry_on_exception=_is_retryable_exception, stop_max_delay=10000, wait_exponential_multiplier=500,
            wait_exponential_max=2000)
     def _alb_describe_target_health(self, **kwargs):
-        return self.alb.describe_target_health(**kwargs)
+        try:
+            return self.alb.describe_target_health(**kwargs)
+        except self.alb.exceptions.TargetGroupNotFoundException:
+            return {}
 
     @retry(retry_on_exception=_is_retryable_exception, stop_max_delay=10000, wait_exponential_multiplier=500,
            wait_exponential_max=2000)
