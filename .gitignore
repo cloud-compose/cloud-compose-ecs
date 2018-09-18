@@ -2,3 +2,4 @@
 .idea/
 cloud_compose_ecs.egg-info/
 *.pyc
+dist/
