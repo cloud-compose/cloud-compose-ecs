@@ -169,7 +169,6 @@ class Controller(object):
 
     def _get_cluster(self):
         try:
-            print(self.name)
             clusters = self._ecs_describe_clusters(clusters=[self.name, ])
             if not clusters['clusters']:
                 raise CloudComposeException("{} cluster could not be found".format(self.name))
