@@ -34,7 +34,7 @@ class Controller(object):
 
     @staticmethod
     def _get_client(client):
-        return boto3.client(client)
+        return boto3.client(client, region_name=environ.get('AWS_REGION', 'us-east-1'))
 
     def _cluster_create(self):
         """
@@ -169,6 +169,7 @@ class Controller(object):
 
     def _get_cluster(self):
         try:
+            print(self.name)
             clusters = self._ecs_describe_clusters(clusters=[self.name, ])
             if not clusters['clusters']:
                 raise CloudComposeException("{} cluster could not be found".format(self.name))
