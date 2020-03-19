@@ -12,7 +12,7 @@ from cloudcompose.exceptions import CloudComposeException
 from cloudcompose.util import require_env_var
 from retrying import retry
 
-from workflow import UpgradeWorkflow, Server
+from .workflow import UpgradeWorkflow, Server
 
 class Controller(object):
     def __init__(self, cloud_config, upgrade_image=None):
@@ -54,7 +54,7 @@ class Controller(object):
         if self._cluster_create():
             self._upgrade_launch_config(silent)
         else:
-            print("ECS cluster {} does not exist and could not be created".format(self.name))
+            print(("ECS cluster {} does not exist and could not be created".format(self.name)))
 
     def cluster_down(self, force):
         """
@@ -270,8 +270,8 @@ class Controller(object):
         :param verbose: a boolean value whether to detailed information about load balancers
         :return: boolean representing status of all load balancers
         """
-        albs = filter(None, [lb.get('targetGroupArn', None) for lb in load_balancers])
-        elbs = filter(None, [lb.get('loadBalancerName', None) for lb in load_balancers])
+        albs = [_f for _f in [lb.get('targetGroupArn', None) for lb in load_balancers] if _f]
+        elbs = [_f for _f in [lb.get('loadBalancerName', None) for lb in load_balancers] if _f]
 
         if self.verbose:
             for alb in albs:
@@ -314,13 +314,13 @@ class Controller(object):
         asg = self._get_auto_scaling_group()
         if len(instances) != asg['DesiredCapacity']:
             if self.verbose:
-                print("ECS cluster is not at desired capacity of {}".format(asg['DesiredCapacity']))
+                print(("ECS cluster is not at desired capacity of {}".format(asg['DesiredCapacity'])))
             return False
         else:
             if self.verbose:
                 for instance in instances:
                     if instance['status'] != 'ACTIVE':
-                        print("{} is not active".format(instance['ec2InstanceId']))
+                        print(("{} is not active".format(instance['ec2InstanceId'])))
 
             return all([instance['status'] == 'ACTIVE' for instance in instances])
 
@@ -348,10 +348,10 @@ class Controller(object):
         :param title: Text to insert into banner
         :param output: Contents to be pretty printed (detailed API response)
         """
-        print("=" * 80)
+        print(("=" * 80))
         print(title)
         if output:
-            print("=" * 80)
+            print(("=" * 80))
             pprint(output)
 
     def _is_retryable_exception(exception):

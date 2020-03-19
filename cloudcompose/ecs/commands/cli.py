@@ -20,7 +20,7 @@ def up(upgrade_image):
         controller = Controller(cloud_config)
         controller.cluster_up()
     except CloudComposeException as ex:
-        print(ex.message)
+        print((ex.message))
 
 
 @cli.command()
@@ -34,7 +34,7 @@ def down(force):
         controller = Controller(cloud_config)
         controller.cluster_down(force)
     except CloudComposeException as ex:
-        print(ex.message)
+        print((ex.message))
 
 
 @cli.command()
@@ -49,11 +49,11 @@ def health(verbose):
         name = cloud_config.config_data('cluster')['name']
         healthy = controller.cluster_health(verbose)
         if healthy:
-            print("{} is healthy".format(name))
+            print(("{} is healthy".format(name)))
         else:
-            print("{} is unhealthy".format(name))
+            print(("{} is unhealthy".format(name)))
     except CloudComposeException as ex:
-        print(ex.message)
+        print((ex.message))
 
 
 @cli.command()
@@ -68,7 +68,7 @@ def upgrade(single_step, upgrade_image):
         controller = Controller(cloud_config, upgrade_image=upgrade_image)
         controller.upgrade(single_step)
     except CloudComposeException as ex:
-        print(ex.message)
+        print((ex.message))
 
 
 @cli.command()
@@ -81,4 +81,4 @@ def cleanup():
         controller = Controller(cloud_config)
         controller.cleanup()
     except CloudComposeException as ex:
-        print(ex.message)
+        print((ex.message))

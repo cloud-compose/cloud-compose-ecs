@@ -29,11 +29,11 @@ class UpgradeWorkflow(object):
 
     def step(self):
         if self.curr_index >= len(self.workflow):
-            print "{} >= {}".format(self.curr_index, len(self.workflow))
+            print("{} >= {}".format(self.curr_index, len(self.workflow)))
             return False
 
         server = self.workflow[self.curr_index]
-        print server
+        print(server)
 
         healthy = self.controller.cluster_health()
         if healthy:
@@ -87,8 +87,8 @@ class UpgradeWorkflow(object):
         workflow = []
         if isfile(self.workflow_file):
             mtime = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(os.path.getmtime(self.workflow_file)))
-            print("Detected a partially completed upgrade on %s." % mtime)
-            command = raw_input("Do you want continue this upgrade [yes/no]?: ")
+            print(("Detected a partially completed upgrade on %s." % mtime))
+            command = input("Do you want continue this upgrade [yes/no]?: ")
             if command.lower() == 'yes':
                 with open(self.workflow_file) as f:
                     data = json.load(f)
@@ -102,7 +102,7 @@ class UpgradeWorkflow(object):
                         self.curr_index += 1
                     workflow.append(server)
 
-                print "%s" % workflow[self.curr_index]
+                print("%s" % workflow[self.curr_index])
             else:
                 os.remove(self.workflow_file)
         if len(workflow) == 0:
